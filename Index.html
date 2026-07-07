@@ -1,0 +1,1369 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angry Birds - Intercambiadores de Calor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #gameContainer {
+            position: relative;
+            width: 1200px;
+            height: 700px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+        }
+        #gameCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            cursor: crosshair;
+        }
+        #ui {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        #score {
+            position: absolute;
+            top: 15px; right: 25px;
+            font-size: 28px; font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        #birdsRemaining {
+            position: absolute;
+            top: 55px; right: 25px;
+            font-size: 18px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        #message {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 44px; font-weight: bold;
+            color: #fff;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.8);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+            background: rgba(0,0,0,0.5);
+            padding: 30px 50px;
+            border-radius: 20px;
+            white-space: pre-line;
+            z-index: 50;
+        }
+        #message.show { opacity: 1; }
+        #buttons {
+            position: absolute;
+            bottom: 15px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 15px;
+            pointer-events: auto;
+        }
+        .btn {
+            padding: 10px 25px;
+            font-size: 16px; font-weight: bold;
+            border: none; border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.4); }
+        .btn-restart { background: linear-gradient(135deg, #ff6b6b, #ee5a6f); color: white; }
+        .btn-next { background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; }
+        #instructions {
+            position: absolute;
+            top: 15px; left: 25px;
+            font-size: 14px;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.4);
+            padding: 8px 14px;
+            border-radius: 10px;
+            line-height: 1.4;
+        }
+        #levelIndicator {
+            position: absolute;
+            top: 15px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px; font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        .hidden { display: none !important; }
+
+        #questionModal {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        #questionModal.show { display: flex; }
+        #questionContent {
+            background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        #questionImage {
+            width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            background: white;
+            padding: 10px;
+        }
+        #questionText {
+            font-size: 20px;
+            color: #fff;
+            margin-bottom: 20px;
+            text-align: left;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .option {
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.2);
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #fff;
+            font-size: 16px;
+            text-align: left;
+            line-height: 1.3;
+        }
+        .option:hover {
+            background: rgba(255,255,255,0.25);
+            transform: translateX(5px);
+        }
+        .option.correct {
+            background: rgba(76, 175, 80, 0.7);
+            border-color: #4CAF50;
+        }
+        .option.incorrect {
+            background: rgba(244, 67, 54, 0.7);
+            border-color: #f44336;
+        }
+        #questionResult {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 20px;
+            color: #fff;
+            font-weight: bold;
+            min-height: 30px;
+        }
+        #continueBtn {
+            display: none;
+            margin: 15px auto 0;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #continueBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.4); }
+        #continueBtn.show { display: block; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div id="levelIndicator">Nivel 1</div>
+            <div id="score">Puntuación: 0</div>
+            <div id="birdsRemaining">Pájaros: 3</div>
+            <div id="instructions">🎯 Arrastra el pájaro hacia ATRÁS (izquierda) y suéltalo.<br>⚠️ Si fallas la estructura, perderás 200 puntos.</div>
+            <div id="message"></div>
+            <div id="buttons">
+                <button class="btn btn-restart" onclick="restartLevel()">🔄 Reiniciar</button>
+                <button class="btn btn-next hidden" id="nextBtn" onclick="nextLevel()">➡️ Siguiente Nivel</button>
+            </div>
+        </div>
+
+        <!-- Modal de Pregunta -->
+        <div id="questionModal">
+            <div id="questionContent">
+                <img id="questionImage" src="" alt="Intercambiador de calor">
+                <div id="questionText"></div>
+                <div id="optionsContainer"></div>
+                <div id="questionResult"></div>
+                <button id="continueBtn" onclick="continueAfterQuestion()">Continuar ➡️</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1200;
+        canvas.height = 700;
+
+        // === CONSTANTES ===
+        const GRAVITY = 0.35;
+        const SLINGSHOT = { x: 180, y: 480 };
+        const GROUND_Y = 580;
+        const MAX_PULL = 110;
+        const LAUNCH_POWER = 0.12;
+        const FRICTION = 0.99;
+        const BOUNCE = 0.4;
+
+        // === ESTADO DEL JUEGO ===
+        let score = 0;
+        let birdsLeft = 3;
+        let currentLevel = 1;
+        const MAX_LEVELS = 10;
+        let gameWon = false;
+        let gameOver = false;
+        let showQuestion = false;
+        let scoreAtLaunch = 0;
+        let birdHitStructure = false; // Detector de impacto
+
+        // === PÁJARO ===
+        let bird = null;
+        let isDragging = false;
+        let birdTrail = [];
+        let trajectoryDots = [];
+
+        // === OBJETOS ===
+        let pigs = [];
+        let blocks = [];
+        let particles = [];
+
+        // === IMÁGENES DE INTERCAMBIADORES ===
+        const heatExchangerImages = {
+            1: new Image(),
+            2: new Image(),
+            3: new Image()
+        };
+        heatExchangerImages[1].src = 'https://image.qwenlm.ai/public_source/8ad4ff41-127e-490e-b40f-8476d8b9531e/1cec292d7-9cae-40af-bbee-431bdd80e0f0.png';
+        heatExchangerImages[2].src = 'https://image.qwenlm.ai/public_source/8ad4ff41-127e-490e-b40f-8476d8b9531e/196c6f428-7715-4c33-ba60-ef737a8da0ac.png';
+        heatExchangerImages[3].src = 'https://image.qwenlm.ai/public_source/8ad4ff41-127e-490e-b40f-8476d8b9531e/130af823e-bcbf-4a7a-9d62-ddf27ca51e8a.png';
+
+        const questions = {
+            1: {
+                image: heatExchangerImages[1],
+                text: "1. ¿Cuál es la función principal de los deflectores (baffles) transversales dentro de la coraza?",
+                options: [
+                    { letter: 'A', text: 'Inducir turbulencia (flujo cruzado) y soportar estructuralmente los tubos.', correct: true },
+                    { letter: 'B', text: 'Aumentar el área superficial de la coraza para maximizar pérdidas de calor.', correct: false },
+                    { letter: 'C', text: 'Reducir la caída de presión actuando como canales lineales directos.', correct: false },
+                    { letter: 'D', text: 'Separar herméticamente las corrientes para evitar mezcla entre pasos.', correct: false }
+                ]
+            },
+            2: {
+                image: heatExchangerImages[2],
+                text: "2. En el método LMTD aplicado a un intercambiador 1-2, ¿por qué se introduce el factor de corrección F?",
+                options: [
+                    { letter: 'A', text: 'Para corregir variaciones en las propiedades por cambios de presión extrema.', correct: false },
+                    { letter: 'B', text: 'Porque el flujo no es contracorriente puro, reduciendo la fuerza impulsora.', correct: true },
+                    { letter: 'C', text: 'Para compensar la resistencia térmica de las soldaduras.', correct: false },
+                    { letter: 'D', text: 'Para ajustar el área cuando se usa paso triangular en vez de cuadrangular.', correct: false }
+                ]
+            },
+            3: {
+                image: heatExchangerImages[1],
+                text: "3. ¿Qué se busca mitigar al seleccionar un arreglo de tubos de paso cuadrangular (square pitch)?",
+                options: [
+                    { letter: 'A', text: 'La deformación plástica por esfuerzos térmicos.', correct: false },
+                    { letter: 'B', text: 'La dificultad de limpieza mecánica ante alta incrustación externa.', correct: true },
+                    { letter: 'C', text: 'El fenómeno de cavitación severa en fluidos criogénicos.', correct: false },
+                    { letter: 'D', text: 'La transición prematura a flujo laminar en el espacio anular.', correct: false }
+                ]
+            },
+            4: {
+                image: heatExchangerImages[2],
+                text: "4. En el método de Kern, ¿cuál es el propósito de calcular el diámetro equivalente (De) para la coraza?",
+                options: [
+                    { letter: 'A', text: 'Reemplazar el diámetro para simular una tubería comercial estándar.', correct: false },
+                    { letter: 'B', text: 'Determinar la velocidad lineal antes del primer deflector.', correct: false },
+                    { letter: 'C', text: 'Definir una dimensión basada en el radio hidráulico para calcular Re y Nu.', correct: true },
+                    { letter: 'D', text: 'Evaluar el esfuerzo cortante máximo en uniones expandidas.', correct: false }
+                ]
+            },
+            5: {
+                image: heatExchangerImages[1],
+                text: "5. ¿Cuál es el inconveniente de un espacio entre deflectores extremadamente pequeño?",
+                options: [
+                    { letter: 'A', text: 'Caída drástica en el coeficiente de transferencia por estancamiento.', correct: false },
+                    { letter: 'B', text: 'Incremento exponencial de caída de presión y flujos de derivación (bypass).', correct: true },
+                    { letter: 'C', text: 'Imposibilidad metalúrgica de soldar a la placa trasera.', correct: false },
+                    { letter: 'D', text: 'Reducción de efectividad al operar como flujo paralelo puro.', correct: false }
+                ]
+            },
+            6: {
+                image: heatExchangerImages[3],
+                text: "6. ¿Qué característica permite a las placas alcanzar coeficientes de transferencia muy altos?",
+                options: [
+                    { letter: 'A', text: 'Corrugaciones que inducen fuerte turbulencia a Re bajos (canales estrechos).', correct: true },
+                    { letter: 'B', text: 'El gran espesor de las placas que incrementa la inercia térmica.', correct: false },
+                    { letter: 'C', text: 'La eliminación total de fuerzas viscosas en fluidos no newtonianos.', correct: false },
+                    { letter: 'D', text: 'El flujo cruzado puro continuo en los empaques perimetrales.', correct: false }
+                ]
+            },
+            7: {
+                image: heatExchangerImages[3],
+                text: "7. ¿Cuál es una limitación operacional de los intercambiadores de placas empaquetadas (Gasketed)?",
+                options: [
+                    { letter: 'A', text: 'Incapacidad para manejar diferencias de temperatura menores a 5°C.', correct: false },
+                    { letter: 'B', text: 'Área superficial fija que no permite modificaciones.', correct: false },
+                    { letter: 'C', text: 'Límites severos de presión y temperatura impuestos por los empaques.', correct: true },
+                    { letter: 'D', text: 'Elevado coeficiente de incrustación en el centro geométrico.', correct: false }
+                ]
+            },
+            8: {
+                image: heatExchangerImages[3],
+                text: "8. ¿Qué es la 'longitud térmica' o NTU en un intercambiador de placas?",
+                options: [
+                    { letter: 'A', text: 'Relación entre el salto térmico y la ΔTml (capacidad para cambios drásticos).', correct: true },
+                    { letter: 'B', text: 'La distancia geométrica lineal del puerto de entrada al de salida.', correct: false },
+                    { letter: 'C', text: 'El número de canales en paralelo requeridos para transitar fluidos.', correct: false },
+                    { letter: 'D', text: 'El espesor de película de incrustación tolerado antes de alarmas.', correct: false }
+                ]
+            },
+            9: {
+                image: heatExchangerImages[3],
+                text: "9. Una ventaja de las placas frente a coraza y tubos en procesos de capacidad variable es:",
+                options: [
+                    { letter: 'A', text: 'Operar en vacío absoluto sin necesidad de bastidor.', correct: false },
+                    { letter: 'B', text: 'Su flexibilidad para añadir/remover placas, adaptando el área de transferencia.', correct: true },
+                    { letter: 'C', text: 'Inexistencia de mantenimiento por ausencia total de incrustaciones.', correct: false },
+                    { letter: 'D', text: 'Inmunidad frente a corrosión galvánica por uso de polímeros.', correct: false }
+                ]
+            },
+            10: {
+                image: heatExchangerImages[3],
+                text: "10. ¿Por qué el factor de incrustación (Rf) es mucho menor en placas?",
+                options: [
+                    { letter: 'A', text: 'Por un campo magnético inducido que repele iones insolubles.', correct: false },
+                    { letter: 'B', text: 'El régimen laminar impide que partículas choquen contra la pared.', correct: false },
+                    { letter: 'C', text: 'Altos esfuerzos cortantes generan un efecto continuo de auto-limpieza (scouring).', correct: true },
+                    { letter: 'D', text: 'Las placas se fabrican con aleaciones porosas que absorben sedimentos.', correct: false }
+                ]
+            }
+        };
+
+        class Bird {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = 18;
+                this.launched = false;
+                this.stopped = false;
+                this.stopTimer = 0;
+                this.rotation = 0;
+            }
+
+            update() {
+                if (!this.launched || this.stopped) return;
+
+                this.vy += GRAVITY;
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.vx * 0.02;
+
+                if (this.y + this.radius > GROUND_Y) {
+                    this.y = GROUND_Y - this.radius;
+                    this.vy *= -BOUNCE;
+                    this.vx *= 0.8;
+                    if (Math.abs(this.vy) < 1 && Math.abs(this.vx) < 0.5) {
+                        this.stopped = true;
+                    }
+                }
+
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -BOUNCE;
+                }
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -BOUNCE;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -BOUNCE;
+                }
+
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed < 0.5 && this.y + this.radius >= GROUND_Y - 2) {
+                    this.stopTimer++;
+                    if (this.stopTimer > 60) this.stopped = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, this.radius);
+                grad.addColorStop(0, '#FF6B6B');
+                grad.addColorStop(1, '#CC2200');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#8B0000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#FFD4A0';
+                ctx.beginPath();
+                ctx.ellipse(0, 5, 10, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(-5, -4, 6, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(5, -4, 6, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-4, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(6, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-11, -10);
+                ctx.lineTo(-2, -7);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(11, -10);
+                ctx.lineTo(2, -7);
+                ctx.stroke();
+
+                ctx.fillStyle = '#FFA500';
+                ctx.beginPath();
+                ctx.moveTo(8, 2);
+                ctx.lineTo(18, 0);
+                ctx.lineTo(8, 5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#CC7700';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#CC0000';
+                ctx.beginPath();
+                ctx.moveTo(-3, -16);
+                ctx.lineTo(0, -22);
+                ctx.lineTo(3, -16);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(2, -15);
+                ctx.lineTo(6, -20);
+                ctx.lineTo(7, -14);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            getSpeed() {
+                return Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            }
+        }
+
+        class Pig {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = 22;
+                this.health = 40;
+                this.maxHealth = 40;
+                this.alive = true;
+                this.rotation = 0;
+                this.sleeping = true; // Empieza dormido (estable)
+            }
+
+            update() {
+                if (!this.alive || this.sleeping) return;
+                this.vy += GRAVITY;
+                this.vx *= 0.98;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.vx * 0.01;
+
+                if (this.y + this.radius > GROUND_Y) {
+                    this.y = GROUND_Y - this.radius;
+                    this.vy *= -BOUNCE * 0.5;
+                    this.vx *= 0.85;
+                    if (Math.abs(this.vy) < 0.5) this.vy = 0;
+                }
+                if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.5; }
+                if (this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.vx *= -0.5; }
+            }
+
+            draw() {
+                if (!this.alive) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, this.radius);
+                grad.addColorStop(0, '#90EE90');
+                grad.addColorStop(1, '#228B22');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#006400';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.ellipse(-15, -14, 6, 8, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(15, -14, 6, 8, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(-7, -4, 6, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(7, -4, 6, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-6, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(8, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#3CB371';
+                ctx.beginPath();
+                ctx.ellipse(0, 6, 9, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#006400';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#006400';
+                ctx.beginPath();
+                ctx.arc(-3, 6, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(3, 6, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (this.health < this.maxHealth) {
+                    const barW = 36;
+                    const barH = 5;
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(-barW/2, -this.radius - 12, barW, barH);
+                    ctx.fillStyle = this.health > 20 ? '#4CAF50' : '#f44336';
+                    ctx.fillRect(-barW/2, -this.radius - 12, barW * (this.health / this.maxHealth), barH);
+                }
+
+                ctx.restore();
+            }
+
+            takeDamage(amount) {
+                this.health -= amount;
+                if (this.health <= 0) {
+                    this.alive = false;
+                    score += 500;
+                    createExplosion(this.x, this.y, '#90EE90');
+                    updateUI();
+                    checkWin();
+                }
+            }
+        }
+
+        class Block {
+            constructor(x, y, w, h, type) {
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+                this.vx = 0;
+                this.vy = 0;
+                this.type = type;
+                this.rotation = 0;
+                this.angularVel = 0;
+                this.health = type === 'stone' ? 80 : 40;
+                this.maxHealth = this.health;
+                this.alive = true;
+                this.sleeping = true; // Empieza dormido (estable)
+            }
+
+            update() {
+                if (!this.alive || this.sleeping) return;
+                this.vy += GRAVITY;
+                this.vx *= 0.98;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.angularVel;
+                this.angularVel *= 0.98;
+
+                if (this.y + this.h / 2 > GROUND_Y) {
+                    this.y = GROUND_Y - this.h / 2;
+                    this.vy *= -BOUNCE * 0.3;
+                    this.vx *= 0.85;
+                    this.angularVel *= 0.9;
+                    if (Math.abs(this.vy) < 0.5) this.vy = 0;
+                }
+                if (this.x - this.w / 2 < 0) { this.x = this.w / 2; this.vx *= -0.5; }
+                if (this.x + this.w / 2 > canvas.width) { this.x = canvas.width - this.w / 2; this.vx *= -0.5; }
+            }
+
+            draw() {
+                if (!this.alive) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                if (this.type === 'stone') {
+                    const grad = ctx.createLinearGradient(-this.w/2, -this.h/2, this.w/2, this.h/2);
+                    grad.addColorStop(0, '#A0A0A0');
+                    grad.addColorStop(1, '#606060');
+                    ctx.fillStyle = grad;
+                    ctx.strokeStyle = '#404040';
+                } else {
+                    const grad = ctx.createLinearGradient(-this.w/2, -this.h/2, this.w/2, this.h/2);
+                    grad.addColorStop(0, '#D2691E');
+                    grad.addColorStop(1, '#8B4513');
+                    ctx.fillStyle = grad;
+                    ctx.strokeStyle = '#5C2E0A';
+                }
+
+                ctx.lineWidth = 2;
+                ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+                ctx.strokeRect(-this.w / 2, -this.h / 2, this.w, this.h);
+
+                if (this.type === 'wood') {
+                    ctx.strokeStyle = 'rgba(90, 40, 10, 0.3)';
+                    ctx.lineWidth = 1;
+                    for (let i = -this.h/2 + 5; i < this.h/2; i += 8) {
+                        ctx.beginPath();
+                        ctx.moveTo(-this.w/2 + 2, i);
+                        ctx.lineTo(this.w/2 - 2, i);
+                        ctx.stroke();
+                    }
+                }
+
+                const dmgRatio = 1 - (this.health / this.maxHealth);
+                if (dmgRatio > 0.3) {
+                    ctx.strokeStyle = `rgba(0,0,0,${dmgRatio * 0.6})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-this.w/4, -this.h/3);
+                    ctx.lineTo(this.w/6, this.h/4);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(this.w/4, -this.h/4);
+                    ctx.lineTo(-this.w/6, this.h/3);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            takeDamage(amount) {
+                this.health -= amount;
+                if (this.health <= 0) {
+                    this.alive = false;
+                    score += 100;
+                    createExplosion(this.x, this.y, this.type === 'stone' ? '#808080' : '#8B4513');
+                    updateUI();
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8 - 3;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.03;
+                this.size = 3 + Math.random() * 5;
+                this.color = color;
+            }
+            update() {
+                this.vy += 0.15;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function wakeUpAll() {
+            pigs.forEach(p => p.sleeping = false);
+            blocks.forEach(b => b.sleeping = false);
+        }
+
+        function checkCollisions() {
+            if (!bird || !bird.launched || bird.stopped) return;
+
+            const birdSpeed = bird.getSpeed();
+
+            // Pájaro vs Cerditos
+            pigs.forEach(pig => {
+                if (!pig.alive) return;
+                const dx = bird.x - pig.x;
+                const dy = bird.y - pig.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = bird.radius + pig.radius;
+
+                if (dist < minDist) {
+                    if (!birdHitStructure) { birdHitStructure = true; wakeUpAll(); }
+                    const overlap = minDist - dist;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    pig.x -= nx * overlap;
+                    pig.y -= ny * overlap;
+
+                    const impactForce = birdSpeed * 1.5;
+                    pig.vx += -nx * impactForce * 0.7;
+                    pig.vy += -ny * impactForce * 0.7;
+                    bird.vx *= 0.3;
+                    bird.vy *= 0.3;
+
+                    pig.takeDamage(impactForce * 2);
+                }
+            });
+
+            // Pájaro vs Bloques
+            blocks.forEach(block => {
+                if (!block.alive) return;
+                if (circleRectCollision(bird, block)) {
+                    if (!birdHitStructure) { birdHitStructure = true; wakeUpAll(); }
+                    const impactForce = birdSpeed * 1.2;
+                    const dx = block.x - bird.x;
+                    const dy = block.y - bird.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    block.vx += nx * impactForce * 0.5;
+                    block.vy += ny * impactForce * 0.5;
+                    block.angularVel += (Math.random() - 0.5) * 0.1;
+
+                    bird.vx *= 0.4;
+                    bird.vy *= 0.4;
+
+                    block.takeDamage(impactForce * 1.5);
+                }
+            });
+
+            // Bloques vs Cerditos
+            blocks.forEach(block => {
+                if (!block.alive || block.sleeping) return;
+                const blockSpeed = Math.sqrt(block.vx * block.vx + block.vy * block.vy);
+                if (blockSpeed < 1) return;
+
+                pigs.forEach(pig => {
+                    if (!pig.alive) return;
+                    if (circleRectCollision(pig, block)) {
+                        pig.takeDamage(blockSpeed * 2);
+                        pig.vx += block.vx * 0.3;
+                        pig.vy += block.vy * 0.3;
+                    }
+                });
+            });
+
+            // Bloques vs Bloques
+            for (let i = 0; i < blocks.length; i++) {
+                for (let j = i + 1; j < blocks.length; j++) {
+                    const a = blocks[i], b = blocks[j];
+                    if (!a.alive || !b.alive || (a.sleeping && b.sleeping)) continue;
+                    
+                    if (rectRectCollision(a, b)) {
+                        const relSpeed = Math.sqrt(
+                            Math.pow(a.vx - b.vx, 2) + Math.pow(a.vy - b.vy, 2)
+                        );
+                        if (relSpeed > 2) {
+                            const dx = b.x - a.x;
+                            const dy = b.y - a.y;
+                            const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                            const nx = dx/dist, ny = dy/dist;
+                            a.vx -= nx * relSpeed * 0.3;
+                            a.vy -= ny * relSpeed * 0.3;
+                            b.vx += nx * relSpeed * 0.3;
+                            b.vy += ny * relSpeed * 0.3;
+                        }
+                        const overlapX = (a.w/2 + b.w/2) - Math.abs(a.x - b.x);
+                        const overlapY = (a.h/2 + b.h/2) - Math.abs(a.y - b.y);
+                        if (overlapX < overlapY) {
+                            const sign = a.x < b.x ? -1 : 1;
+                            a.x += sign * overlapX * 0.5;
+                            b.x -= sign * overlapX * 0.5;
+                        } else {
+                            const sign = a.y < b.y ? -1 : 1;
+                            a.y += sign * overlapY * 0.5;
+                            b.y -= sign * overlapY * 0.5;
+                        }
+                    }
+                }
+            }
+        }
+
+        function circleRectCollision(circle, rect) {
+            const cos = Math.cos(-rect.rotation);
+            const sin = Math.sin(-rect.rotation);
+            const dx = circle.x - rect.x;
+            const dy = circle.y - rect.y;
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+
+            const closestX = Math.max(-rect.w/2, Math.min(rect.w/2, localX));
+            const closestY = Math.max(-rect.h/2, Math.min(rect.h/2, localY));
+
+            const distX = localX - closestX;
+            const distY = localY - closestY;
+            return (distX * distX + distY * distY) < (circle.radius * circle.radius);
+        }
+
+        function rectRectCollision(a, b) {
+            return Math.abs(a.x - b.x) < (a.w/2 + b.w/2) &&
+                   Math.abs(a.y - b.y) < (a.h/2 + b.h/2);
+        }
+
+        function calculateTrajectory(startX, startY, vx, vy) {
+            trajectoryDots = [];
+            let sx = startX, sy = startY;
+            let svx = vx, svy = vy;
+            for (let i = 0; i < 50; i++) {
+                svy += GRAVITY;
+                sx += svx;
+                sy += svy;
+                if (sy > GROUND_Y) break;
+                if (i % 3 === 0) {
+                    trajectoryDots.push({ x: sx, y: sy, alpha: 1 - i / 50 });
+                }
+            }
+        }
+
+        function setupLevel(level) {
+            pigs = [];
+            blocks = [];
+            particles = [];
+            birdTrail = [];
+            trajectoryDots = [];
+            bird = null;
+            isDragging = false;
+            gameWon = false;
+            gameOver = false;
+            showQuestion = false;
+            birdsLeft = 3;
+            birdHitStructure = false;
+
+            document.getElementById('nextBtn').classList.add('hidden');
+            document.getElementById('message').classList.remove('show');
+            document.getElementById('questionModal').classList.remove('show');
+
+            // --- Creador Matemático de Estructuras 100% Estables ---
+            // Nivel base: Y = 580.
+            // Para bloques verticales h=80 (su centro Y=540)
+            // Para maderas h=18, apoyadas sobre bloques (su centro Y = 500-9 = 491)
+            // Cerditos (radio 22), apoyados sobre maderas (su centro Y = 482-22 = 460)
+
+            const mType1 = (level % 2 === 0) ? 'stone' : 'wood';
+            const mType2 = (level % 3 === 0) ? 'wood' : 'stone';
+
+            // Base Nivel 1 (Piso 1)
+            blocks.push(new Block(800, 540, 25, 80, mType1));
+            blocks.push(new Block(1000, 540, 25, 80, mType1));
+            blocks.push(new Block(900, 491, 250, 18, mType1)); // Plataforma
+            
+            // Cerdos piso 1
+            pigs.push(new Pig(850, 460));
+            pigs.push(new Pig(950, 460));
+            
+            // Piso 2
+            blocks.push(new Block(850, 442, 20, 80, mType2));
+            blocks.push(new Block(950, 442, 20, 80, mType2));
+            blocks.push(new Block(900, 393, 170, 18, mType2)); // Plataforma
+            
+            // Cerdos piso 2
+            pigs.push(new Pig(870, 362));
+            pigs.push(new Pig(930, 362));
+            
+            // Piso 3
+            blocks.push(new Block(875, 344, 15, 80, 'stone'));
+            blocks.push(new Block(925, 344, 15, 80, 'stone'));
+            blocks.push(new Block(900, 295, 100, 18, 'wood')); // Techo
+            
+            // Cerdo Rey piso 3
+            pigs.push(new Pig(900, 264));
+
+            // Variaciones sutiles por nivel para que no sean idénticos visualmente
+            if (level > 4) {
+                // Columnas de defensa traseras
+                blocks.push(new Block(1050, 540, 20, 80, 'stone'));
+                blocks.push(new Block(1050, 460, 20, 80, 'stone'));
+            }
+
+            loadBird();
+            updateUI();
+        }
+
+        function loadBird() {
+            if (birdsLeft <= 0) {
+                checkGameOver();
+                return;
+            }
+            bird = new Bird(SLINGSHOT.x, SLINGSHOT.y);
+            birdTrail = [];
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!bird || bird.launched || gameWon || gameOver || showQuestion) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mx = (e.clientX - rect.left) * scaleX;
+            const my = (e.clientY - rect.top) * scaleY;
+
+            const dx = mx - bird.x;
+            const dy = my - bird.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 50) {
+                isDragging = true;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging || !bird) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let mx = (e.clientX - rect.left) * scaleX;
+            let my = (e.clientY - rect.top) * scaleY;
+
+            let dx = mx - SLINGSHOT.x;
+            let dy = my - SLINGSHOT.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > MAX_PULL) {
+                dx = (dx / dist) * MAX_PULL;
+                dy = (dy / dist) * MAX_PULL;
+            }
+
+            if (dx > 20) dx = 20;
+
+            bird.x = SLINGSHOT.x + dx;
+            bird.y = SLINGSHOT.y + dy;
+
+            const launchVx = -dx * LAUNCH_POWER * 1.8;
+            const launchVy = -dy * LAUNCH_POWER * 1.8;
+            calculateTrajectory(SLINGSHOT.x, SLINGSHOT.y, launchVx, launchVy);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (!isDragging || !bird) return;
+            isDragging = false;
+
+            const dx = SLINGSHOT.x - bird.x;
+            const dy = SLINGSHOT.y - bird.y;
+            const pullDist = Math.sqrt(dx * dx + dy * dy);
+
+            if (pullDist < 10) {
+                bird.x = SLINGSHOT.x;
+                bird.y = SLINGSHOT.y;
+                return;
+            }
+
+            bird.launched = true;
+            birdHitStructure = false; // Reinicia el detector de impacto
+            scoreAtLaunch = score;
+            bird.vx = dx * LAUNCH_POWER * 1.8;
+            bird.vy = dy * LAUNCH_POWER * 1.8;
+            birdsLeft--;
+            trajectoryDots = [];
+            updateUI();
+
+            const checkStopped = setInterval(() => {
+                if (!bird || bird.stopped || bird.x > canvas.width + 50 || bird.y > canvas.height + 50 || bird.x < -50) {
+                    clearInterval(checkStopped);
+                    
+                    setTimeout(() => {
+                        if (!gameWon && !gameOver && !showQuestion) {
+                            
+                            // Lógica de Penalización por fallar
+                            if (!birdHitStructure) {
+                                score = Math.max(0, score - 200);
+                                updateUI();
+                                showMessage('¡Fallaste la estructura!\n-200 Puntos', false);
+                                setTimeout(() => document.getElementById('message').classList.remove('show'), 1500);
+                            }
+
+                            if (birdsLeft > 0) {
+                                setTimeout(() => loadBird(), 800);
+                            } else {
+                                setTimeout(() => checkGameOver(), 800);
+                            }
+                        }
+                    }, 1200); // Tiempo extra para que la gravedad actúe tras el golpe
+                }
+            }, 100);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            canvas.dispatchEvent(new MouseEvent('mouseup'));
+        });
+
+        function checkWin() {
+            const alivePigs = pigs.filter(p => p.alive);
+            if (alivePigs.length === 0 && !gameWon) {
+                gameWon = true;
+                score += birdsLeft * 1000; // Bonus por pájaros restantes
+                updateUI();
+                setTimeout(() => {
+                    showQuestionModal();
+                }, 1500);
+            }
+        }
+
+        function checkGameOver() {
+            const alivePigs = pigs.filter(p => p.alive);
+            if (alivePigs.length > 0 && !gameWon) {
+                gameOver = true;
+                showMessage('¡Game Over! 💀\nLos cerdos sobrevivieron', false);
+            }
+        }
+
+        function showMessage(text, isWin) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.classList.add('show');
+            if (isWin) {
+                document.getElementById('nextBtn').classList.remove('hidden');
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('score').textContent = `Puntuación: ${score}`;
+            document.getElementById('birdsRemaining').textContent = `Pájaros: ${birdsLeft}`;
+            document.getElementById('levelIndicator').textContent = `Nivel ${currentLevel} / ${MAX_LEVELS}`;
+        }
+
+        function restartLevel() {
+            setupLevel(currentLevel);
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            setupLevel(currentLevel);
+        }
+
+        function showQuestionModal() {
+            showQuestion = true;
+            const question = questions[currentLevel];
+            if (!question) return;
+
+            const modal = document.getElementById('questionModal');
+            const img = document.getElementById('questionImage');
+            const text = document.getElementById('questionText');
+            const optionsContainer = document.getElementById('optionsContainer');
+            const result = document.getElementById('questionResult');
+            const continueBtn = document.getElementById('continueBtn');
+
+            img.src = question.image.src;
+            text.textContent = question.text;
+            optionsContainer.innerHTML = '';
+            result.textContent = '';
+            continueBtn.classList.remove('show');
+
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = `${option.letter}) ${option.text}`;
+                optionDiv.onclick = () => selectAnswer(option, optionDiv, question);
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            modal.classList.add('show');
+        }
+
+        function selectAnswer(option, element, question) {
+            const options = document.querySelectorAll('.option');
+            options.forEach(opt => opt.style.pointerEvents = 'none');
+
+            const result = document.getElementById('questionResult');
+            const continueBtn = document.getElementById('continueBtn');
+
+            if (option.correct) {
+                element.classList.add('correct');
+                result.textContent = '✅ ¡Correcto! +300 puntos de conocimiento';
+                score += 300;
+                updateUI();
+                setTimeout(() => {
+                    continueBtn.classList.add('show');
+                }, 1000);
+            } else {
+                element.classList.add('incorrect');
+                // Mostrar la correcta
+                options.forEach((opt, idx) => {
+                    if (question.options[idx].correct) {
+                        opt.classList.add('correct');
+                    }
+                });
+                result.textContent = '❌ Incorrecto. Estudia un poco más. La respuesta correcta está en verde.';
+                setTimeout(() => {
+                    continueBtn.classList.add('show');
+                }, 2000);
+            }
+        }
+
+        function continueAfterQuestion() {
+            document.getElementById('questionModal').classList.remove('show');
+            showQuestion = false;
+            
+            if (currentLevel < MAX_LEVELS) {
+                document.getElementById('nextBtn').classList.remove('hidden');
+                showMessage(`Nivel ${currentLevel} Completado\n¡Buen trabajo!`, true);
+            } else {
+                showMessage('🎉 ¡FELICITACIONES! 🎉\nHas dominado los Intercambiadores de Calor\ny vencido a todos los cerdos.', false);
+            }
+        }
+
+        function drawCloud(x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.arc(15, -10, 25, 0, Math.PI * 2);
+            ctx.arc(35, 0, 25, 0, Math.PI * 2);
+            ctx.arc(15, 10, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawBackground() {
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+            skyGrad.addColorStop(0, '#4A90D9');
+            skyGrad.addColorStop(0.5, '#87CEEB');
+            skyGrad.addColorStop(1, '#B8E6FF');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, GROUND_Y);
+
+            ctx.fillStyle = '#FFE066';
+            ctx.beginPath();
+            ctx.arc(1050, 80, 45, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255, 224, 102, 0.3)';
+            ctx.beginPath();
+            ctx.arc(1050, 80, 65, 0, Math.PI * 2);
+            ctx.fill();
+
+            drawCloud(150, 80, 1);
+            drawCloud(500, 120, 0.8);
+            drawCloud(850, 60, 1.2);
+            drawCloud(350, 180, 0.6);
+
+            ctx.fillStyle = '#6B8E6B';
+            ctx.beginPath();
+            ctx.moveTo(0, GROUND_Y);
+            ctx.lineTo(100, 400);
+            ctx.lineTo(250, GROUND_Y);
+            ctx.lineTo(400, 350);
+            ctx.lineTo(550, GROUND_Y);
+            ctx.lineTo(700, 380);
+            ctx.lineTo(850, GROUND_Y);
+            ctx.lineTo(1000, 420);
+            ctx.lineTo(1200, GROUND_Y);
+            ctx.closePath();
+            ctx.fill();
+
+            const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, canvas.height);
+            groundGrad.addColorStop(0, '#4a7c59');
+            groundGrad.addColorStop(0.3, '#3d6b4a');
+            groundGrad.addColorStop(1, '#2d5a3a');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+            ctx.fillStyle = '#5a9c69';
+            for (let i = 0; i < canvas.width; i += 8) {
+                const h = 4 + Math.sin(i * 0.1) * 3;
+                ctx.beginPath();
+                ctx.moveTo(i, GROUND_Y);
+                ctx.lineTo(i + 4, GROUND_Y - h);
+                ctx.lineTo(i + 8, GROUND_Y);
+                ctx.fill();
+            }
+        }
+
+        function drawSlingshot() {
+            if (isDragging && bird) {
+                ctx.beginPath();
+                ctx.moveTo(SLINGSHOT.x - 10, SLINGSHOT.y);
+                ctx.lineTo(bird.x, bird.y);
+                ctx.strokeStyle = '#301505';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#5C2E0A';
+            ctx.fillRect(SLINGSHOT.x - 5, SLINGSHOT.y, 10, GROUND_Y - SLINGSHOT.y);
+            ctx.strokeStyle = '#301505';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(SLINGSHOT.x - 5, SLINGSHOT.y, 10, GROUND_Y - SLINGSHOT.y);
+            
+            ctx.beginPath();
+            ctx.moveTo(SLINGSHOT.x - 5, SLINGSHOT.y + 20);
+            ctx.lineTo(SLINGSHOT.x - 20, SLINGSHOT.y - 10);
+            ctx.lineTo(SLINGSHOT.x - 10, SLINGSHOT.y - 10);
+            ctx.lineTo(SLINGSHOT.x + 5, SLINGSHOT.y + 10);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(SLINGSHOT.x + 5, SLINGSHOT.y + 20);
+            ctx.lineTo(SLINGSHOT.x + 20, SLINGSHOT.y - 10);
+            ctx.lineTo(SLINGSHOT.x + 10, SLINGSHOT.y - 10);
+            ctx.lineTo(SLINGSHOT.x - 5, SLINGSHOT.y + 10);
+            ctx.fill();
+            ctx.stroke();
+
+            if (isDragging && bird) {
+                ctx.beginPath();
+                ctx.moveTo(SLINGSHOT.x + 10, SLINGSHOT.y);
+                ctx.lineTo(bird.x, bird.y);
+                ctx.strokeStyle = '#4A2000';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+            }
+            
+            if (bird && !bird.launched) {
+                bird.draw();
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+
+            if (!showQuestion) {
+                checkCollisions();
+            }
+
+            blocks.forEach(b => { if (!showQuestion) b.update(); b.draw(); });
+            pigs.forEach(p => { if (!showQuestion) p.update(); p.draw(); });
+            
+            if (bird && bird.launched && !bird.stopped) {
+                if (Math.random() < 0.3) birdTrail.push({x: bird.x, y: bird.y, alpha: 1});
+            }
+            birdTrail.forEach(t => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${t.alpha})`;
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+                if(!showQuestion) t.alpha -= 0.02;
+            });
+            birdTrail = birdTrail.filter(t => t.alpha > 0);
+
+            if (bird) {
+                if (!showQuestion) bird.update();
+                if (bird.launched) bird.draw();
+            }
+            
+            for(let i = 0; i < birdsLeft - (bird && !bird.launched ? 1 : 0); i++) {
+                const bx = SLINGSHOT.x - 40 - i * 30;
+                const by = GROUND_Y - 15;
+                const dummyBird = new Bird(bx, by);
+                dummyBird.radius = 15;
+                dummyBird.draw();
+            }
+
+            drawSlingshot();
+
+            if (isDragging) {
+                trajectoryDots.forEach(dot => {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${dot.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            particles.forEach(p => { if (!showQuestion) p.update(); p.draw(); });
+            particles = particles.filter(p => p.life > 0);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Inicializar el juego
+        setupLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>
+
+```
